@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+                        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+    <!-- 读取配置文件 -->
+    <context:property-placeholder location="classpath:jdbc.properties"/>
+    <!-- druid数据库连接池注入 -->
+    <bean id="druidDataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <!--jdbcTemplate注入-->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="druidDataSource"></property>
+    </bean>
+    <!--注解组件扫描-->
+    <context:component-scan base-package="com.yang">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!--    aop配置-->
+    <!--    目标对象-->
+    <bean id="target" class="com.yang.aop.Target"></bean>
+    <!--切面对象-->
+    <bean id="aspect" class="com.yang.aop.Aspect"></bean>
+    <!--    配置织入：告知spring框架哪些方法（切点）需要进行哪些增强（前置/后置）-->
+    <aop:config>
+        <aop:aspect ref="aspect">
+            <!-- 切点表达式抽取-->
+            <aop:pointcut id="pointcut" expression="execution(public void com.yang.aop.Target.func())"/>
+            <!-- 切面=切点+通知-->
+            <aop:before method="before" pointcut="execution(public void com.yang.aop.Target.func())"></aop:before>
+            <aop:after-returning method="afterReturning"
+                                 pointcut="execution(public void com.yang.aop.Target.func())"></aop:after-returning>
+            <!--            <aop:around method="around" pointcut="execution(public void com.yang.aop.Target.func()))"></aop:around>-->
+            <aop:after-throwing method="afterThrowing" pointcut-ref="pointcut"></aop:after-throwing>
+            <aop:after method="after" pointcut-ref="pointcut"></aop:after>
+        </aop:aspect>
+    </aop:config>
+
+    <!--spring事务管理配置-->
+    <!--    <bean id="accountDao" class="com.yang.dao.impl.AccountDaoImpl">-->
+    <!--        <property name="jdbcTemplate" ref="jdbcTemplate"></property>-->
+    <!--    </bean>-->
+    <!--    目标对象-->
+    <!--    <bean id="accountService" class="com.yang.service.impl.AccountServiceImpl">-->
+    <!--        <property name="accountDao" ref="accountDao"></property>-->
+    <!--    </bean>-->
+    <!--    上述配置通过已通过注解完成-->
+    <!--    配置平台事务管理器-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="druidDataSource"></property>
+    </bean>
+    <!--    通知-->
+    <tx:advice id="interceptor" transaction-manager="transactionManager">
+        <!--设置事务的属性信息-->
+        <tx:attributes>
+            <tx:method name="transfer" isolation="REPEATABLE_READ" propagation="REQUIRED" read-only="false"></tx:method>
+<!--            <tx:method name="*"></tx:method>-->
+        </tx:attributes>
+    </tx:advice>
+
+    <!--事务的aop织入-->
+    <aop:config>
+        <aop:advisor advice-ref="interceptor" pointcut="execution(* com.yang.service.impl.AccountServiceImpl.*(..))"></aop:advisor>
+    </aop:config>
+
+    <!--    <bean id="user1" class="com.yang.domain.User">-->
+    <!--&lt;!&ndash;普通数据类型依赖注入&ndash;&gt;-->
+    <!--        <property name="id" value="10001"></property>-->
+    <!--        <property name="username" value="yangjiao"></property>-->
+    <!--    </bean>-->
+    <!--    <bean id="user2" class="com.yang.domain.User">-->
+    <!--        <property name="id" value="10002"></property>-->
+    <!--        <property name="username" value="lihua"></property>-->
+    <!--    </bean>-->
+
+    <!--    <bean id="userDao" class="com.yang.dao.impl.UserDaoImpl">-->
+    <!--        集合依赖注入-->
+    <!--        <property name="users">-->
+    <!--            <list value-type="com.yang.domain.User">-->
+    <!--                <bean id="user1" class="com.yang.domain.User">-->
+    <!--                    &lt;!&ndash;        普通数据类型依赖注入&ndash;&gt;-->
+    <!--                    <property name="id" value="10001"></property>-->
+    <!--                    <property name="username" value="yangjiao"></property>-->
+    <!--                </bean>-->
+    <!--                <bean id="user2" class="com.yang.domain.User">-->
+    <!--                    <property name="id" value="10002"></property>-->
+    <!--                    <property name="username" value="lihua"></property>-->
+    <!--                </bean>-->
+    <!--                <ref bean="user1"></ref>-->
+    <!--                <ref bean="user2"></ref>-->
+    <!--            </list>-->
+    <!--        </property>-->
+    <!--    </bean>-->
+
+    <!--    构造方法注入-->
+    <!--    <bean id="userService" class="com.yang.service.UserService">-->
+    <!--        <constructor-arg name="userDao" ref="userDao"></constructor-arg>-->
+    <!--    </bean>-->
+
+    <!--    Set方法注入-->
+    <!--    <bean id="userService" class="com.yang.service.UserService">-->
+    <!--        &lt;!&ndash;        Bean对象依赖注入&ndash;&gt;-->
+    <!--        <property name="userDao" ref="userDao"/>-->
+    <!--    </bean>-->
+
+    <!--    <bean id="userController" class="com.yang.controller.UserController">-->
+    <!--        <property name="userService" ref="userService"/>-->
+    <!--    </bean>-->
+
+
+</beans>
